@@ -22,27 +22,37 @@ public string GETRequest()
 
 public string POSTRequest()
 {
-    HttpClient client = new HttpClient();
-    client.BaseAddress = new Uri(URL);
-    var parameters = new Dictionary<string, string>
-    {
-        { "Attendance", Attendance },
-        { "deviceCode", deviceCode }
-    };
-    var content = new FormUrlEncodedContent(parameters);
+    List<List<string>> listOfAttendances = _mwService.getAllAttendances();
 
-    // Add an Accept header for JSON format.
-    client.DefaultRequestHeaders.Accept.Add(
-    new MediaTypeWithQualityHeaderValue("text/plain"));
-
-    var response = client.PostAsync("https://localhost:44398/save/saveEmployeeAttendance", content).Result;
-    // List data response.
-    if (response.IsSuccessStatusCode)
+    string URL = String.Empty/*URL OF API*/;
+    using (var client = new HttpClient())
     {
-        // Parse the response body.
-        var connectionString = response.Content.ReadAsStringAsync().Result;  //Make sure to add a reference to System.Net.Http.Formatting.dll
-        return "ATTENDANCE SAVED";
+        client.BaseAddress = new Uri(URL);
+
+        //HTTP POST
+        var postTask = client.PostAsJsonAsync(client.BaseAddress, listOfAttendances);
+        postTask.Wait();
+
+        var result = postTask.Result;
+
+        if (result.IsSuccessStatusCode)
+        {
+            // Parse the response body.
+            var resultString = result.Content.ReadAsStringAsync().Result;
+            ResponceAPI returnObj = JsonConvert.DeserializeObject<ResponceAPI>(resultString);
+            if (returnObj.Status == (int)APIReturnValues.Success)
+            {
+                _mwService.markAttendanceTaken();
+                //return Type
+                return returnObj.Message;
+            }
+            else if(returnObj.Status == (int)APIReturnValues.Fail)
+            {
+                return returnObj.Message + "List size = " + listOfAttendances.Count.ToString();
+            }
+
+            throw new Exception();
+        }
+
     }
-    throw new Exception("Send and save attendance in Middleware ");
-
 }
